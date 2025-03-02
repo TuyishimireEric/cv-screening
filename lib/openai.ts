@@ -24,12 +24,12 @@ export async function analyzeResume(
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
           content:
-            "You are an expert resume reviewer. Analyze the resume and provide detailed feedback. provide overall score, strengths, weaknesses, suggestions, ats compatibility, keyword match, and detailed feedback.",
+            "You are an expert resume reviewer. Carefully analyze the candidate's resume and job description. Provide a summarized feedback to the user with a focus on education and experience. Be sure to avoid making assumptions about the candidate's qualifications. Provide a candidate-to-position fit score, strengths, weaknesses, and suggestions for improvement.",
         },
         {
           role: "user",
@@ -38,13 +38,16 @@ export async function analyzeResume(
           }`,
         },
       ],
-      max_tokens: 600,
-      temperature: 0.7,
+      max_tokens: 300,
+      temperature: 0.8,
     });
 
     const result = response.choices[0]?.message.content?.trim() || "";
+    console.log("====================================");
 
-      return formatResumeReviewResponse(result);
+    console.log("OpenAI response:", result);
+
+    return formatResumeReviewResponse(result);
   } catch (error) {
     console.error("Error analyzing resume with OpenAI:", error);
     throw new Error(
@@ -54,60 +57,83 @@ export async function analyzeResume(
 }
 
 function formatResumeReviewResponse(responseText: string): ReviewResponse {
-  const normalizedText = responseText.replace(/\r?\n|\r/g, '\n'); // Ensure consistent line breaks
-  const sections = normalizedText.split(/\n{2,}/);  // Split by two or more newlines
+  const normalizedText = responseText.replace(/\r?\n|\r/g, "\n"); // Ensure consistent line breaks
+  const sections = normalizedText.split(/\n{2,}/); // Split by two or more newlines
 
   if (sections.length < 2) {
-    console.error('Error: Response format is incorrect. Not enough sections found.');
+    console.error(
+      "Error: Response format is incorrect. Not enough sections found."
+    );
     return {
       overallScore: 0,
-      strengths: ['No strengths information available.'],
-      weaknesses: ['No weaknesses information available.'],
-      suggestions: ['No suggestions available.'],
+      strengths: ["No strengths information available."],
+      weaknesses: ["No weaknesses information available."],
+      suggestions: ["No suggestions available."],
       atsCompatibility: 50,
-      detailedFeedback: 'The resume review could not be processed due to missing or incorrect sections.',
+      detailedFeedback:
+        "The resume review could not be processed due to missing or incorrect sections.",
     };
   }
 
   // Extract Overall Score
-  const overallScoreMatch = sections[0].match(/\*\*Overall Score: (\d+\.?\d*)\/10\*\*/);
+  const overallScoreMatch = sections[0].match(
+    /\*\*Overall Score: (\d+\.?\d*)\/10\*\*/
+  );
   const overallScore = overallScoreMatch ? parseFloat(overallScoreMatch[1]) : 0;
 
   // Extract ATS Compatibility (assuming it's part of the response)
   const atsCompatibilityMatch = sections[0].match(/ATS Compatibility: (\d+)/);
-  const atsCompatibility = atsCompatibilityMatch ? parseInt(atsCompatibilityMatch[1], 10) : 50;
+  const atsCompatibility = atsCompatibilityMatch
+    ? parseInt(atsCompatibilityMatch[1], 10)
+    : 50;
 
   // Extract Strengths Section
   let strengths = [];
-  const strengthsSection = sections.find(section => section.includes('Strengths'));
+  const strengthsSection = sections.find((section) =>
+    section.includes("Strengths")
+  );
   if (strengthsSection) {
     strengths = strengthsSection
-      .split('\n')
-      .filter(line => line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3.") || line.startsWith("4.") || line.startsWith("5."))
-      .map(line => line.replace(/^\d+\.\s*/, '').trim());
+      .split("\n")
+      .filter(
+        (line) =>
+          line.startsWith("1.") ||
+          line.startsWith("2.") ||
+          line.startsWith("3.") ||
+          line.startsWith("4.") ||
+          line.startsWith("5.")
+      )
+      .map((line) => line.replace(/^\d+\.\s*/, "").trim());
   } else {
-    console.warn('Warning: No strengths section found.');
-    strengths.push('No strengths information available.');
+    console.warn("Warning: No strengths section found.");
+    strengths.push("No strengths information available.");
   }
 
   // Extract Weaknesses Section
   let weaknesses = [];
-  const weaknessesSection = sections.find(section => section.includes('Weaknesses'));
+  const weaknessesSection = sections.find((section) =>
+    section.includes("Weaknesses")
+  );
   if (weaknessesSection) {
     weaknesses = weaknessesSection
-      .split('\n')
-      .filter(line => line.startsWith("1.") || line.startsWith("2.") || line.startsWith("3."))
-      .map(line => line.replace(/^\d+\.\s*/, '').trim());
+      .split("\n")
+      .filter(
+        (line) =>
+          line.startsWith("1.") ||
+          line.startsWith("2.") ||
+          line.startsWith("3.")
+      )
+      .map((line) => line.replace(/^\d+\.\s*/, "").trim());
   } else {
-    console.warn('Warning: No weaknesses section found.');
-    weaknesses.push('No weaknesses information available.');
+    console.warn("Warning: No weaknesses section found.");
+    weaknesses.push("No weaknesses information available.");
   }
 
   // Default suggestions if not found
   const suggestions = ["Quantify achievements", "Improve keyword match"];
 
   // Extract Detailed Feedback (summary, feedback, and any additional insights)
-  const detailedFeedback = sections.join('\n').trim();
+  const detailedFeedback = sections.join("\n").trim();
 
   return {
     overallScore,
