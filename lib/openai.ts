@@ -1,9 +1,7 @@
-/**
- * This module handles interactions with the OpenAI API.
- */
 import OpenAI from "openai";
 
 import { ReviewResponse } from "@/types/resume";
+import { ChatCompletionMessageParam } from "openai/resources/index.mjs";
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error("OPENAI_API_KEY is not defined in environment variables");
@@ -23,21 +21,31 @@ export async function analyzeResume(
       throw new Error("No resume text provided for analysis");
     }
 
+    const messages: ChatCompletionMessageParam[] = [
+      {
+        role: "system", // This is a valid literal value
+        content:
+          "You are an expert resume reviewer. Carefully analyze the candidate's resume and job description. Provide a summarized feedback focusing on education and experience. Avoid making assumptions about the candidate's qualifications.\n\n" +
+          "Provide the response in **this exact format**:\n" +
+          "\"name: 'name here', email:'email goes here', score: 8/10, strength: 'strength here', weakness: 'weakness here', suggestions: 'suggestions here'\"",
+      },
+      {
+        role: "user", // This is a valid literal value
+        content: `Resume:\n${resumeText}`,
+      },
+      ...(jobDescription
+        ? [
+            {
+              role: "user" as const,
+              content: `Job Description:\n${jobDescription} with 5 years of experience`,
+            },
+          ]
+        : []),
+    ];
+
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert resume reviewer. Carefully analyze the candidate's resume and job description. Provide a summarized feedback to the user with a focus on education and experience. Be sure to avoid making assumptions about the candidate's qualifications. Provide a candidate-to-position fit score, strengths, weaknesses, and suggestions for improvement.",
-        },
-        {
-          role: "user",
-          content: `Resume: ${resumeText}\n\n${
-            jobDescription ? `Job Description: ${jobDescription}` : ""
-          }`,
-        },
-      ],
+      model: "gpt-4o-mini",
+      messages,
       max_tokens: 300,
       temperature: 0.8,
     });
@@ -47,7 +55,7 @@ export async function analyzeResume(
 
     console.log("OpenAI response:", result);
 
-    return formatResumeReviewResponse(result);
+    return formatResponse(result);
   } catch (error) {
     console.error("Error analyzing resume with OpenAI:", error);
     throw new Error(
@@ -56,91 +64,20 @@ export async function analyzeResume(
   }
 }
 
-function formatResumeReviewResponse(responseText: string): ReviewResponse {
-  const normalizedText = responseText.replace(/\r?\n|\r/g, "\n"); // Ensure consistent line breaks
-  const sections = normalizedText.split(/\n{2,}/); // Split by two or more newlines
-
-  if (sections.length < 2) {
-    console.error(
-      "Error: Response format is incorrect. Not enough sections found."
-    );
-    return {
-      overallScore: 0,
-      strengths: ["No strengths information available."],
-      weaknesses: ["No weaknesses information available."],
-      suggestions: ["No suggestions available."],
-      atsCompatibility: 50,
-      detailedFeedback:
-        "The resume review could not be processed due to missing or incorrect sections.",
-    };
-  }
-
-  // Extract Overall Score
-  const overallScoreMatch = sections[0].match(
-    /\*\*Overall Score: (\d+\.?\d*)\/10\*\*/
-  );
-  const overallScore = overallScoreMatch ? parseFloat(overallScoreMatch[1]) : 0;
-
-  // Extract ATS Compatibility (assuming it's part of the response)
-  const atsCompatibilityMatch = sections[0].match(/ATS Compatibility: (\d+)/);
-  const atsCompatibility = atsCompatibilityMatch
-    ? parseInt(atsCompatibilityMatch[1], 10)
-    : 50;
-
-  // Extract Strengths Section
-  let strengths = [];
-  const strengthsSection = sections.find((section) =>
-    section.includes("Strengths")
-  );
-  if (strengthsSection) {
-    strengths = strengthsSection
-      .split("\n")
-      .filter(
-        (line) =>
-          line.startsWith("1.") ||
-          line.startsWith("2.") ||
-          line.startsWith("3.") ||
-          line.startsWith("4.") ||
-          line.startsWith("5.")
-      )
-      .map((line) => line.replace(/^\d+\.\s*/, "").trim());
-  } else {
-    console.warn("Warning: No strengths section found.");
-    strengths.push("No strengths information available.");
-  }
-
-  // Extract Weaknesses Section
-  let weaknesses = [];
-  const weaknessesSection = sections.find((section) =>
-    section.includes("Weaknesses")
-  );
-  if (weaknessesSection) {
-    weaknesses = weaknessesSection
-      .split("\n")
-      .filter(
-        (line) =>
-          line.startsWith("1.") ||
-          line.startsWith("2.") ||
-          line.startsWith("3.")
-      )
-      .map((line) => line.replace(/^\d+\.\s*/, "").trim());
-  } else {
-    console.warn("Warning: No weaknesses section found.");
-    weaknesses.push("No weaknesses information available.");
-  }
-
-  // Default suggestions if not found
-  const suggestions = ["Quantify achievements", "Improve keyword match"];
-
-  // Extract Detailed Feedback (summary, feedback, and any additional insights)
-  const detailedFeedback = sections.join("\n").trim();
+function formatResponse(response: string) {
+  const nameMatch = response.match(/name:\s*'([^']+)'/);
+  const emailMatch = response.match(/email:\s*'([^']+)'/);
+  const scoreMatch = response.match(/score:\s*(\d+)\/10/);
+  const strengthMatch = response.match(/strength:\s*'([^']+)'/);
+  const weaknessMatch = response.match(/weakness:\s*'([^']+)'/);
+  const suggestionMatch = response.match(/suggestions:\s*'([^']+)'/);
 
   return {
-    overallScore,
-    strengths,
-    weaknesses,
-    suggestions,
-    atsCompatibility,
-    detailedFeedback,
+    name: nameMatch ? nameMatch[1] : "",
+    email: emailMatch ? emailMatch[1] : "",
+    overallScore: scoreMatch ? parseInt(scoreMatch[1], 10) : 0,
+    strengths: strengthMatch ? [strengthMatch[1]] : [],
+    weaknesses: weaknessMatch ? [weaknessMatch[1]] : [],
+    suggestions: suggestionMatch ? [suggestionMatch[1]] : [],
   };
 }

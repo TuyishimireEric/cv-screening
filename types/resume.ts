@@ -1,11 +1,10 @@
 export interface ReviewResponse {
+  name: string;
+  email: string;
   overallScore: number;
   strengths: string[];
   weaknesses: string[];
   suggestions: string[];
-  atsCompatibility: number;
-  keywordMatch?: number;
-  detailedFeedback: string;
 }
 
 export interface UploadResponse {
@@ -15,6 +14,6 @@ export interface UploadResponse {
 }
 
 export interface AnalyzeRequest {
-  fileId: string;
+  resumeText: string;
   jobDescription?: string;
 }
