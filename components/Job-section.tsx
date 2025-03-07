@@ -21,9 +21,15 @@ import { useJobs } from "@/app/hooks/jobs/useJobs";
 import { Job } from "@/types";
 import { JobCard } from "./dashboard/JobCard";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function JobsSection() {
   const { data: jobs = [], isLoading, error } = useJobs();
+  const router = useRouter();
+
+  const onJobClick = (jobId: string) => {
+    router.push(`/resume?job_id=${jobId}`);
+  };
 
   if (isLoading)
     return <div className="text-center py-8">Loading job listings...</div>;
@@ -108,7 +114,7 @@ export default function JobsSection() {
             <JobCard
               key={job.id}
               job={job}
-              onJobClick={(id: string) => {}}
+              onJobClick={(id: string) => onJobClick(id)}
               onViewApplicants={(id: string) => {}}
             />
           ))}

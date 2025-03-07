@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { parsePdf } from "@/lib/pdf-parser";
 import { analyzeResume } from "@/lib/openai";
 import { AnalyzeRequest } from "@/types/resume";
-import { existsSync } from "fs";
 
 export async function POST(request: NextRequest) {
   try {
     const body: AnalyzeRequest = await request.json();
     const { resumeText, jobDescription } = body;
 
-    if (!resumeText) {
+    if (!resumeText) { 
       return NextResponse.json(
         { error: "File ID is required" },
         { status: 400 }

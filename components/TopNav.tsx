@@ -5,6 +5,7 @@ import { Sun, Moon, LogOut, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { AuthModal } from "./AuthModal";
 import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
 
 export default function TopNav() {
   const { theme, setTheme } = useTheme();
@@ -27,9 +28,12 @@ export default function TopNav() {
           <div className="flex justify-between items-center">
             {/* Site Name / Logo */}
             <div>
-              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400">
+              <Link
+                href={"/"}
+                className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400"
+              >
                 ResumeAI
-              </h1>
+              </Link>
             </div>
 
             {/* Right Side Elements */}

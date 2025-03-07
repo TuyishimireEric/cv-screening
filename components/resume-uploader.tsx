@@ -15,14 +15,21 @@ import {
   Zap,
   Shield,
   Star,
+  Send,
 } from "lucide-react";
 import { ResumeReview } from "@/components/resume-review";
 import { ResumeUploadForm } from "@/components/resume-upload-form";
 import { JobDescriptionInput } from "@/components/job-description-input";
 import { type ReviewResponse } from "@/types/resume";
+import { useSearchParams } from "next/navigation";
+import { useJobs } from "@/app/hooks/jobs/useJobs";
+import { Job } from "@/types";
 
 export function ResumeUploader() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const jobIdParam = searchParams.get("job_id");
+
   const [file, setFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -32,6 +39,28 @@ export function ResumeUploader() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [pdfText, setPdfText] = useState<string>("");
+  const [isJobMode, setIsJobMode] = useState<boolean>(false);
+  const [job, setJob] = useState<Job | null>(null);
+
+  const { data: jobs = [], isLoading: isJobLoading } = useJobs();
+
+  useEffect(() => {
+    if (jobIdParam) {
+      const jobExist = jobs.find((job: Job) => job.id === jobIdParam);
+      setJob(jobExist || null);
+    }
+  }, [jobIdParam, jobs]);
+
+  // Set job description and extract requirements from fetched job data
+  useEffect(() => {
+    if (job) {
+      setIsJobMode(true);
+      // Extract requirements from job description
+      // This is a simple extraction logic - you might want to improve this
+      // based on your actual job description format
+      const descriptionText = job.description || "";
+    }
+  }, [job, isJobLoading, jobIdParam, toast]);
 
   const handleFileChange = (selectedFile: File | null) => {
     setFile(selectedFile);
@@ -39,8 +68,16 @@ export function ResumeUploader() {
     setError(null);
   };
 
+  useEffect(() => {
+    if (file) {
+      extractTextFromPDF(file);
+    }
+  }, [file]);
+
   const handleJobDescriptionChange = (text: string) => {
-    setJobDescription(text);
+    if (!isJobMode) {
+      setJobDescription(text);
+    }
   };
 
   const simulateProgress = () => {
@@ -204,6 +241,54 @@ export function ResumeUploader() {
     }
   };
 
+  const handleApplyForJob = async () => {
+    if (!file || !job || !reviewData) {
+      toast({
+        title: "Cannot apply",
+        description: "Missing resume or job information",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Create form data for application
+      const formData = new FormData();
+      formData.append("resume", file);
+      formData.append("jobId", job.id);
+      formData.append("resumeText", pdfText);
+
+      // Send application
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit application");
+      }
+
+      toast({
+        title: "Application submitted",
+        description: "Your job application was successfully submitted",
+      });
+    } catch (error) {
+      console.error("Error submitting application:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to submit application";
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!file) {
       toast({
@@ -222,16 +307,8 @@ export function ResumeUploader() {
       setCurrentStep(2);
       const progressInterval = simulateProgress();
 
-      // Create form data
-
-      await extractTextFromPDF(file);
-
       if (pdfText.trim() === "") {
         throw new Error("No text content found in this PDF.");
-      }
-
-      if (jobDescription.trim() === "") {
-        throw new Error("Please provide a job description");
       }
 
       clearInterval(progressInterval);
@@ -249,7 +326,9 @@ export function ResumeUploader() {
         },
         body: JSON.stringify({
           resumeText: pdfText,
-          jobDescription: jobDescription.trim() || undefined,
+          jobDescription: job
+            ? `job title: ${job.title} ${job.requirements} `
+            : jobDescription,
         }),
       });
 
@@ -305,38 +384,122 @@ export function ResumeUploader() {
     },
   ];
 
+  // Determine if user can apply based on score
+  const canApply = isJobMode && reviewData && reviewData?.overallScore >= 5;
+
+  const formatDescription = (description: string) => {
+    const lines = description.split("\n");
+    const listItems: string[] = [];
+    const formattedContent: JSX.Element[] = [];
+
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+
+      if (trimmedLine.startsWith("-") || trimmedLine.startsWith("•")) {
+        listItems.push(trimmedLine);
+      } else {
+        if (listItems.length > 0) {
+          formattedContent.push(
+            <ul
+              key={`list-${index}`}
+              className="list-disc pl-5 text-gray-600 dark:text-slate-300"
+            >
+              {listItems.map((item, i) => (
+                <li key={i}>{item.substring(1).trim()}</li>
+              ))}
+            </ul>
+          );
+          listItems.length = 0;
+        }
+
+        formattedContent.push(
+          trimmedLine ? (
+            <p
+              key={index}
+              className="mt-2 text-left text-gray-600 dark:text-slate-300"
+            >
+              {trimmedLine}
+            </p>
+          ) : (
+            <br key={index} />
+          )
+        );
+      }
+    });
+
+    if (listItems.length > 0) {
+      formattedContent.push(
+        <ul
+          key="list-final"
+          className="list-disc pl-5 text-gray-600 dark:text-slate-300"
+        >
+          {listItems.map((item, i) => (
+            <li key={i}>{item.substring(1).trim()}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    return formattedContent;
+  };
+
   return (
-    <section className="relative overflow-hidden py-16 bg-gradient-to-b from-slate-900 to-slate-800">
+    <section className="relative overflow-hidden py-16 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
       {/* Abstract background elements */}
       <div className="absolute inset-0">
-        <div className="absolute -top-64 right-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-violet-600/20 rounded-full blur-3xl"></div>
+        <div className="absolute -top-64 right-1/4 w-96 h-96 bg-blue-100/50 dark:bg-indigo-900/30 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-indigo-100/50 dark:bg-violet-900/30 rounded-full blur-3xl"></div>
       </div>
 
       {/* Subtle grid overlay */}
-      <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
+      <div className="absolute inset-0 bg-grid-black/[0.03] dark:bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Transform Your{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400">
-              Professional Profile
-            </span>
-          </h2>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-            Upload your resume for AI-powered analysis that identifies strengths
-            and improvement opportunities to help you stand out to employers.
-          </p>
+        <div className="text-left mb-12 mx-auto">
+          {isJobMode && job ? (
+            <>
+              <h2 className="text-3xl font-bold text-gray-800 dark:text-white">
+                Apply for{" "}
+                <span className="text-blue-600 dark:text-blue-400">
+                  {job.title}
+                </span>
+              </h2>
+              <p className="mt-2 text-gray-600 dark:text-slate-300">
+                {job.location} | Closes: {job.close_date}
+              </p>
+              <div className="text-base">
+                {job.description && formatDescription(job.description)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Transform Your{" "}
+                  <span className="text-blue-600">Professional Profile</span>
+                </h2>
+                <p className="mt-2 text-gray-600">
+                  Upload your resume for AI-powered analysis that identifies
+                  strengths and improvement opportunities to help you stand out
+                  to employers.
+                </p>
+              </div>
+              <div className="flex justify-center">
+                <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                  Upload Resume
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Progress steps */}
         <div className="max-w-4xl mx-auto mb-10">
           <div className="relative flex justify-between">
             {/* Progress line */}
-            <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-700 -translate-y-1/2">
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 dark:bg-slate-700 -translate-y-1/2">
               <div
-                className="h-full bg-gradient-to-r from-indigo-500 to-violet-600 transition-all duration-500"
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-indigo-500 dark:to-violet-600 transition-all duration-500"
                 style={{
                   width: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
                 }}
@@ -347,22 +510,24 @@ export function ResumeUploader() {
               <div
                 key={index}
                 className={`relative flex flex-col items-center ${
-                  index + 1 <= currentStep ? "text-white" : "text-slate-500"
+                  index + 1 <= currentStep
+                    ? "text-slate-800 dark:text-white"
+                    : "text-slate-400 dark:text-slate-500"
                 }`}
               >
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300 ${
                     index + 1 < currentStep
-                      ? "bg-gradient-to-r from-indigo-500 to-violet-600"
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-indigo-500 dark:to-violet-600"
                       : index + 1 === currentStep
-                      ? "bg-gradient-to-r from-indigo-500 to-violet-600 ring-4 ring-indigo-500/20"
-                      : "bg-slate-700"
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-indigo-500 dark:to-violet-600 ring-4 ring-blue-500/20 dark:ring-indigo-500/20"
+                      : "bg-slate-200 dark:bg-slate-700"
                   }`}
                 >
                   {step.icon}
                 </div>
                 <p className="mt-2 font-medium text-sm">{step.title}</p>
-                <p className="text-xs mt-1 text-slate-400 hidden md:block">
+                <p className="text-xs mt-1 text-slate-500 dark:text-slate-400 hidden md:block">
                   {step.description}
                 </p>
               </div>
@@ -372,14 +537,14 @@ export function ResumeUploader() {
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
           <div className="lg:col-span-2">
-            <Card className="border-0 shadow-2xl bg-gradient-to-br from-slate-800 to-slate-900 overflow-hidden backdrop-blur-sm">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-violet-600/5"></div>
+            <Card className="border border-slate-200 dark:border-slate-800 shadow-lg dark:shadow-2xl bg-white dark:bg-slate-900 overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-indigo-900/5 dark:to-violet-900/5"></div>
               <CardContent className="relative p-6">
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold text-white mb-2">
+                  <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-2">
                     Upload Your Resume
                   </h3>
-                  <p className="text-slate-300 text-sm">
+                  <p className="text-slate-600 dark:text-slate-300 text-sm">
                     Select your file to get started with your career
                     transformation
                   </p>
@@ -387,20 +552,22 @@ export function ResumeUploader() {
 
                 <ResumeUploadForm file={file} onFileChange={handleFileChange} />
 
-                <div className="mt-6">
-                  <JobDescriptionInput
-                    value={jobDescription}
-                    onChange={handleJobDescriptionChange}
-                  />
-                </div>
+                {!isJobMode && (
+                  <div className="mt-6">
+                    <JobDescriptionInput
+                      value={jobDescription}
+                      onChange={handleJobDescriptionChange}
+                    />
+                  </div>
+                )}
 
                 {(isUploading || uploadProgress > 0) && (
                   <div className="mt-6">
                     <Progress
                       value={uploadProgress}
-                      className="h-2 bg-slate-700"
+                      className="h-2 bg-slate-100 dark:bg-slate-700"
                     />
-                    <p className="text-sm text-slate-300 mt-2 flex items-center">
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-2 flex items-center">
                       <Loader2 className="h-3 w-3 mr-2 animate-spin" />
                       Uploading: {Math.round(uploadProgress)}%
                     </p>
@@ -408,8 +575,10 @@ export function ResumeUploader() {
                 )}
 
                 {error && (
-                  <div className="mt-6 p-3 bg-red-500/10 border border-red-500/30 rounded-md">
-                    <p className="text-sm text-red-400">{error}</p>
+                  <div className="mt-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-md">
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {error}
+                    </p>
                   </div>
                 )}
 
@@ -417,7 +586,7 @@ export function ResumeUploader() {
                   <Button
                     onClick={handleSubmit}
                     disabled={!file || isUploading || isAnalyzing}
-                    className="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white border-0 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40"
+                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-indigo-500 dark:to-violet-600 dark:hover:from-indigo-600 dark:hover:to-violet-700 text-white border-0 shadow-lg shadow-blue-500/25 dark:shadow-indigo-500/25 hover:shadow-blue-500/40 dark:hover:shadow-indigo-500/40"
                   >
                     {isUploading ? (
                       <>
@@ -436,7 +605,28 @@ export function ResumeUploader() {
                   </Button>
                 </div>
 
-                <div className="mt-4 flex items-center justify-center text-slate-400 text-xs">
+                {isJobMode && reviewData && canApply && (
+                  <div className="mt-4">
+                    <Button
+                      onClick={handleApplyForJob}
+                      disabled={isUploading}
+                      className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white border-0 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 dark:shadow-green-500/20 dark:hover:shadow-green-500/30"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" /> Apply Now
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs">
                   <Shield className="h-3 w-3 mr-1" />
                   Your data is secure and encrypted
                 </div>
@@ -444,10 +634,10 @@ export function ResumeUploader() {
             </Card>
 
             {/* Features list */}
-            <div className="mt-6 p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-              <h4 className="text-white font-medium mb-3 flex items-center">
-                <Star className="h-4 w-4 mr-2 text-indigo-400" /> Premium
-                Analysis Features
+            <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-sm rounded-lg border border-slate-100 dark:border-slate-700/50">
+              <h4 className="text-slate-800 dark:text-white font-medium mb-3 flex items-center">
+                <Star className="h-4 w-4 mr-2 text-blue-500 dark:text-indigo-400" />{" "}
+                Premium Analysis Features
               </h4>
               <ul className="space-y-2">
                 {[
@@ -458,8 +648,10 @@ export function ResumeUploader() {
                   "Impact Statement Enhancement",
                 ].map((feature, index) => (
                   <li key={index} className="flex items-start">
-                    <ArrowRight className="h-4 w-4 mr-2 text-indigo-400 shrink-0 mt-0.5" />
-                    <span className="text-sm text-slate-300">{feature}</span>
+                    <ArrowRight className="h-4 w-4 mr-2 text-blue-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+                    <span className="text-sm text-slate-600 dark:text-slate-300">
+                      {feature}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -470,15 +662,15 @@ export function ResumeUploader() {
             <ResumeReview reviewData={reviewData} />
 
             {!reviewData && !isAnalyzing && (
-              <div className="h-full flex items-center justify-center p-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 shadow-2xl">
+              <div className="h-full flex items-center justify-center p-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-lg dark:shadow-2xl">
                 <div className="text-center max-w-md">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                    <FileText className="h-8 w-8 text-indigo-400" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                    <FileText className="h-8 w-8 text-blue-600 dark:text-indigo-400" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-3">
+                  <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-3">
                     Ready to Analyze Your Resume
                   </h3>
-                  <p className="text-slate-300 mb-6">
+                  <p className="text-slate-600 dark:text-slate-300 mb-6">
                     Upload your resume and get a comprehensive analysis with
                     personalized improvement suggestions to increase your
                     interview chances.
@@ -491,7 +683,7 @@ export function ResumeUploader() {
                     ].map((badge, i) => (
                       <span
                         key={i}
-                        className="px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-full text-xs text-indigo-300"
+                        className="px-3 py-1 bg-blue-50 border border-blue-100 dark:bg-indigo-900/20 dark:border-indigo-700/30 rounded-full text-xs text-blue-600 dark:text-indigo-300"
                       >
                         {badge}
                       </span>
@@ -502,15 +694,15 @@ export function ResumeUploader() {
             )}
 
             {isAnalyzing && !reviewData && (
-              <div className="h-full flex items-center justify-center p-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 shadow-2xl">
+              <div className="h-full flex items-center justify-center p-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-lg dark:shadow-2xl">
                 <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 text-indigo-400 animate-spin" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 text-blue-600 dark:text-indigo-400 animate-spin" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-3">
+                  <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-3">
                     Analyzing Your Resume
                   </h3>
-                  <p className="text-slate-300">
+                  <p className="text-slate-600 dark:text-slate-300">
                     Our AI is thoroughly reviewing your resume to provide
                     personalized feedback and recommendations.
                   </p>
@@ -522,10 +714,10 @@ export function ResumeUploader() {
 
         {/* Testimonials/social proof */}
         <div className="mt-16 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-r from-slate-800/50 via-slate-800/80 to-slate-800/50 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+          <div className="bg-white dark:bg-slate-900 bg-opacity-80 dark:bg-opacity-80 backdrop-blur-sm rounded-xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               <div className="flex flex-col items-center md:items-start">
-                <p className="text-slate-300 mb-2 text-center md:text-left">
+                <p className="text-slate-600 dark:text-slate-300 mb-2 text-center md:text-left">
                   Trusted by professionals from
                 </p>
                 <div className="flex flex-wrap gap-3 items-center justify-center md:justify-start">
@@ -533,7 +725,7 @@ export function ResumeUploader() {
                     (company, i) => (
                       <div
                         key={i}
-                        className="text-white font-medium bg-white/5 px-3 py-1 rounded"
+                        className="text-slate-800 dark:text-white font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded"
                       >
                         {company}
                       </div>
@@ -548,10 +740,12 @@ export function ResumeUploader() {
                   { number: "92%", label: "Interview Rate" },
                 ].map((stat, i) => (
                   <div key={i} className="text-center">
-                    <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
+                    <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-500 dark:from-indigo-400 dark:to-violet-400">
                       {stat.number}
                     </p>
-                    <p className="text-xs text-slate-400">{stat.label}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {stat.label}
+                    </p>
                   </div>
                 ))}
               </div>

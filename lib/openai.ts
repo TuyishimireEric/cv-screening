@@ -37,7 +37,7 @@ export async function analyzeResume(
         ? [
             {
               role: "user" as const,
-              content: `Job Description:\n${jobDescription} with 5 years of experience`,
+              content: `Job Description:\n${jobDescription}`,
             },
           ]
         : []),
