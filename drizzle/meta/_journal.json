@@ -8,6 +8,13 @@
       "when": 1741276072181,
       "tag": "0000_funny_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1741332210760,
+      "tag": "0001_groovy_ronan",
+      "breakpoints": true
     }
   ]
 }

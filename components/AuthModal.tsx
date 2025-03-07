@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Mail, Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react";
-import Image from "next/image";
+import { useAuth } from "@/app/hooks/user/useRegister";
 
 // Modal component that can be used for both signup and signin
 interface AuthModalProps {
@@ -25,7 +25,11 @@ interface FormErrors {
   [key: string]: string | undefined;
 }
 
-export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) {
+export function AuthModal({
+  isOpen,
+  onClose,
+  type = "signin",
+}: AuthModalProps) {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -33,6 +37,33 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
     password: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [currentType, setCurrentType] = useState(type);
+  const [animationClass, setAnimationClass] = useState(""); // State for animation class
+
+  // Use our custom authentication hook
+  const { submitAuth, handleGoogleSignIn, isLoading, isSuccess } = useAuth();
+
+  // Function to handle form type toggle with animations
+  const toggleFormType = (newType: "signin" | "signup") => {
+    if (newType === currentType) return;
+    
+    // Set exit animation for current form
+    setAnimationClass("animate__animated animate__fadeOutRight animate__faster");
+    
+    // After exit animation completes, change form type and set entrance animation
+    setTimeout(() => {
+      setCurrentType(newType);
+      setAnimationClass("animate__animated animate__fadeInLeft animate__faster");
+      
+      // Reset form data and errors when switching forms
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+      });
+      setErrors({});
+    }, 300); // Matches the duration of the "faster" animate.css timing
+  };
 
   const togglePasswordVisibility = () => {
     setIsPasswordVisible(!isPasswordVisible);
@@ -47,10 +78,23 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
     }
   };
 
+  useEffect(() => {
+    if (isSuccess) {
+      onClose();
+    }
+  }, [isSuccess, onClose]);
+
+  // Set initial animation class when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setAnimationClass("animate__animated animate__fadeInLeft animate__faster");
+    }
+  }, [isOpen]);
+
   const validateForm = () => {
     const newErrors: FormErrors = {};
 
-    if (type === "signup" && !formData.name.trim()) {
+    if (currentType === "signup" && !formData.name.trim()) {
       newErrors.name = "Name is required";
     }
 
@@ -70,34 +114,35 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (validateForm()) {
-      // Here you would integrate with your authentication system
-      console.log("Form submitted:", formData);
-      // For demo purposes only - would be replaced with actual auth logic
-      onClose();
+      try {
+        await submitAuth(currentType, formData);
+        // Only close if successful (the hook handles error states)
+        // onClose();
+      } catch (error) {
+        console.error("Authentication error:", error);
+      }
     }
   };
 
-  const handleGoogleSignIn = () => {
-    // This would be replaced with actual NextAuth Google sign-in logic
-    console.log("Google sign in");
-  };
+  // Animation for modal entrance
+  const modalAnimationClass = isOpen ? "animate__animated animate__zoomIn animate__faster" : "";
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+      {/* Backdrop with fade animation */}
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate__animated animate__fadeIn animate__faster"
         onClick={onClose}
       ></div>
 
       {/* Modal */}
-      <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-8 overflow-hidden">
+      <div className={`relative bg-white dark:bg-slate-900 rounded-xl shadow-xl max-w-lg w-full p-8 overflow-hidden ${modalAnimationClass}`}>
         {/* Background gradients */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-indigo-600/10 dark:bg-indigo-600/20 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-violet-600/10 dark:bg-violet-600/20 rounded-full blur-3xl"></div>
@@ -110,20 +155,20 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal content */}
-        <div className="relative">
+        {/* Modal content with animation */}
+        <div className={`relative ${animationClass}`}>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-1 mt-2">
-            {type === "signin" ? "Welcome back" : "Create your account"}
+            {currentType === "signin" ? "Welcome back" : "Create your account"}
           </h2>
           <p className="text-slate-500 dark:text-slate-400 mb-6">
-            {type === "signin"
+            {currentType === "signin"
               ? "Enter your credentials to access your account"
               : "Fill in the information to get started"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {type === "signup" && (
-              <div>
+            {currentType === "signup" && (
+              <div className="animate__animated animate__fadeIn">
                 <label
                   htmlFor="name"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
@@ -149,7 +194,7 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
                   />
                 </div>
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-500 flex items-center">
+                  <p className="mt-1 text-sm text-red-500 flex items-center animate__animated animate__shakeX">
                     <AlertCircle className="h-3.5 w-3.5 mr-1" />
                     {errors.name}
                   </p>
@@ -183,7 +228,7 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
                 />
               </div>
               {errors.email && (
-                <p className="mt-1 text-sm text-red-500 flex items-center">
+                <p className="mt-1 text-sm text-red-500 flex items-center animate__animated animate__shakeX">
                   <AlertCircle className="h-3.5 w-3.5 mr-1" />
                   {errors.email}
                 </p>
@@ -213,7 +258,7 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
                       : "border-slate-200 dark:border-slate-700"
                   } rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dark:text-white`}
                   placeholder={
-                    type === "signin" ? "Your password" : "Create a password"
+                    currentType === "signin" ? "Your password" : "Create a password"
                   }
                 />
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3">
@@ -231,14 +276,14 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
                 </div>
               </div>
               {errors.password && (
-                <p className="mt-1 text-sm text-red-500 flex items-center">
+                <p className="mt-1 text-sm text-red-500 flex items-center animate__animated animate__shakeX">
                   <AlertCircle className="h-3.5 w-3.5 mr-1" />
                   {errors.password}
                 </p>
               )}
             </div>
 
-            {type === "signin" && (
+            {currentType === "signin" && (
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -251,9 +296,38 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
 
             <button
               type="submit"
-              className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 flex items-center justify-center"
+              disabled={isLoading}
+              className="w-full py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 flex items-center justify-center disabled:opacity-70"
             >
-              {type === "signin" ? "Sign In" : "Create Account"}
+              {isLoading ? (
+                <span className="flex items-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : currentType === "signin" ? (
+                "Sign In"
+              ) : (
+                "Create Account"
+              )}
             </button>
           </form>
 
@@ -267,7 +341,8 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
 
           <button
             onClick={handleGoogleSignIn}
-            className="w-full py-2.5 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-colors duration-200"
+            disabled={isLoading}
+            className="w-full py-2.5 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-colors duration-200 disabled:opacity-70"
           >
             <svg
               width="18"
@@ -299,17 +374,23 @@ export function AuthModal({ isOpen, onClose, type = "signin" }: AuthModalProps) 
           </button>
 
           <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-            {type === "signin" ? (
+            {currentType === "signin" ? (
               <>
                 Don't have an account?{" "}
-                <button className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300">
+                <button
+                  onClick={() => toggleFormType("signup")}
+                  className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300"
+                >
                   Sign up
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300">
+                <button
+                  onClick={() => toggleFormType("signin")}
+                  className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300"
+                >
                   Sign in
                 </button>
               </>

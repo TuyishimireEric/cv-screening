@@ -4,19 +4,21 @@ import React, { useState } from "react";
 import { Sun, Moon, LogOut, User } from "lucide-react";
 import { useTheme } from "next-themes";
 import { AuthModal } from "./AuthModal";
+import { signOut, useSession } from "next-auth/react";
 
 export default function TopNav() {
   const { theme, setTheme } = useTheme();
   const [isSigninOpen, setIsSigninOpen] = useState(false);
   const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const { data: session } = useSession();
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  const isLoggedIn = false;
-  const userName = "John Doe";
-  const avatarUrl = "";
+  const isLoggedIn = session?.user;
+  const userName = session?.user?.name;
+  const avatarUrl = session?.user?.image;
 
   return (
     <>
@@ -75,7 +77,10 @@ export default function TopNav() {
                     </div>
 
                     {/* Logout Button */}
-                    <button className="flex items-center space-x-1 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors">
+                    <button
+                      onClick={() => signOut()}
+                      className="flex items-center space-x-1 text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
+                    >
                       <LogOut className="h-4 w-4" />
                       <span className="hidden sm:inline">Logout</span>
                     </button>

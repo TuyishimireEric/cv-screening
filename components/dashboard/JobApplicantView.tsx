@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 interface JobApplicantsViewProps {
-  jobId: number;
+  jobId: string;
   onBack: () => void;
 }
 
