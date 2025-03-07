@@ -331,15 +331,15 @@ export function AuthModal({
             </button>
           </form>
 
-          <div className="my-6 flex items-center">
+          {/* <div className="my-6 flex items-center">
             <div className="flex-grow h-px bg-slate-200 dark:bg-slate-700"></div>
             <span className="px-4 text-sm text-slate-400">
               or continue with
             </span>
             <div className="flex-grow h-px bg-slate-200 dark:bg-slate-700"></div>
-          </div>
+          </div> */}
 
-          <button
+          {/* <button
             onClick={handleGoogleSignIn}
             disabled={isLoading}
             className="w-full py-2.5 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-colors duration-200 disabled:opacity-70"
@@ -371,7 +371,7 @@ export function AuthModal({
             <span className="text-slate-800 dark:text-white font-medium text-sm">
               Continue with Google
             </span>
-          </button>
+          </button> */}
 
           <div className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
             {currentType === "signin" ? (

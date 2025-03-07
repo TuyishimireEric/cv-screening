@@ -11,7 +11,6 @@ export const useJobs = () => {
         ...job,
         requirements: job.requirements ? JSON.parse(job.requirements) : [],
         applicants: job.applicants || 0,
-        department: job.department || "Not specified",
         posted: job.open_date
           ? formatDateToRelative(job.open_date)
           : "Recently",

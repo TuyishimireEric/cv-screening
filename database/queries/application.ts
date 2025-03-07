@@ -22,8 +22,8 @@ export const addNewApplication = async (newApplication: ApplicationI) => {
         status: newApplication.status,
         match_score: newApplication.match_score,
         resume_url: newApplication.resume_url,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date().toISOString(), 
+        updated_at: new Date().toISOString(), 
       })
       .returning();
 

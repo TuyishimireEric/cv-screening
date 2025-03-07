@@ -24,8 +24,8 @@ export const addNewJob = async (newJob: JobI, user_id: string) => {
         open_date: newJob.open_date,
         close_date: newJob.close_date,
         created_by: user_id,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date().toISOString(), 
+        updated_at: new Date().toISOString(), 
       })
       .returning();
 

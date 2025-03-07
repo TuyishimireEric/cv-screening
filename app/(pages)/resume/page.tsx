@@ -1,11 +1,12 @@
 import { ResumeUploader } from "@/components/resume-uploader";
+import { Suspense } from "react";
 
-function App() {
+function MyPage() {
   return (
-    <div className="App">
+    <Suspense fallback={<div>Loading...</div>}>
       <ResumeUploader />
-    </div>
+    </Suspense>
   );
 }
 
-export default App;
+export default MyPage;

@@ -20,7 +20,7 @@ import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 
-export function AdminDashboard() {
+const Page: React.FC = () => {
   const [currentView, setCurrentView] = useState("dashboard");
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -323,6 +323,6 @@ export function AdminDashboard() {
       </main>
     </div>
   );
-}
+};
 
-export default AdminDashboard;
+export default Page;

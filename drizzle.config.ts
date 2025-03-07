@@ -1,12 +1,11 @@
-import { defineConfig } from 'drizzle-kit';
 
-export default defineConfig({
+export default {
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.POSTGRES_URL!,
-    ssl: true
+    ssl: true,
   },
   schema: "./database/schema.ts",
   strict: true,
-  verbose: true
-});
+  verbose: true,
+};
