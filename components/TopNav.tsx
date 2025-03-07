@@ -57,6 +57,14 @@ export default function TopNav() {
 
               {isLoggedIn ? (
                 <>
+                {session?.user?.role === "admin" && (
+                  <Link
+                    href={"/admin"}
+                    className="px-8 py-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium text-sm shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all duration-300 hover:scale-105"
+                  >
+                    Admin
+                  </Link>
+                )}
                   {/* User Info */}
                   <div className="flex items-center space-x-3">
                     <div className="text-right hidden sm:block">

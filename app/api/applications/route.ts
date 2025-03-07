@@ -1,28 +1,16 @@
 // app/api/jobs/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createJobSchema } from "@/app/hooks/jobs/useCreateJob";
-import { addNewJob, getJobs } from "@/database/queries/jobs";
 import { getToken } from "next-auth/jwt";
 import { AuthUser } from "@/types/user";
 import { HttpStatusCode } from "axios";
+import {
+  addNewApplication,
+  getApplications,
+} from "@/database/queries";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-export async function GET() {
-  try {
-    const allJobs = await getJobs();
-
-    return NextResponse.json(allJobs, { status: 200 });
-  } catch (error) {
-    console.error("Error fetching jobs:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch jobs" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
     const cookieName =
       process.env.NODE_ENV === "production"
@@ -45,13 +33,25 @@ export async function POST(req: NextRequest) {
         { status: HttpStatusCode.Unauthorized }
       );
     }
+    const allJobs = await getApplications();
 
+    return NextResponse.json(allJobs, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching jobs:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch jobs" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
     const body = await req.json();
-    const validatedData = createJobSchema.parse(body);
 
-    const newJob = await addNewJob(validatedData, user.id);
+    const newApplication = await addNewApplication(body);
 
-    return NextResponse.json(newJob, { status: 201 });
+    return NextResponse.json(newApplication, { status: 201 });
   } catch (error: any) {
     console.error("Error creating job:", error);
 

@@ -6,6 +6,7 @@ import {
   uuid,
   timestamp,
   integer,
+  unique,
 } from "drizzle-orm/pg-core";
 import { AdapterAccount } from "next-auth/adapters";
 
@@ -16,8 +17,8 @@ export const users = pgTable("users", {
   password: text("password"),
   image: text("image"),
   role: varchar("role", { length: 30 }),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  created_at: text("created_at"),
+  updated_at: text("updated_at"),
 });
 
 export const jobs = pgTable("jobs", {
@@ -32,30 +33,32 @@ export const jobs = pgTable("jobs", {
   created_by: uuid("created_by")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  created_at: text("created_at"),
+  updated_at: text("updated_at"),
 });
 
 export const applications = pgTable("applications", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
-  user_id: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
+  user_name: varchar("user_name", { length: 255 }),
+  user_email: text("user_email").notNull(),
   job_id: uuid("job_id")
     .references(() => jobs.id, { onDelete: "cascade" })
     .notNull(),
   status: varchar("status", { length: 30 }),
   match_score: text("match_score"),
-  application_id: text("application_id"),
-  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
+  resume_url: text("resume_url"),
+  created_at: text("created_at"),
+  updated_at: text("updated_at"),
+}, (table) => ({
+  uniqueApplication: unique().on(table.user_email, table.job_id),
+}));
+
 
 export const session = pgTable("session", {
   session_token: varchar("session_token").primaryKey(),
   user_id: uuid("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id),
   expires: timestamp("expires").notNull(),
 });
 

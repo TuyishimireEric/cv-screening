@@ -24,6 +24,7 @@ import { type ReviewResponse } from "@/types/resume";
 import { useSearchParams } from "next/navigation";
 import { useJobs } from "@/app/hooks/jobs/useJobs";
 import { Job } from "@/types";
+import { useCreateApplication } from "@/app/hooks/jobs/useCreateApplication";
 
 export function ResumeUploader() {
   const { toast } = useToast();
@@ -43,6 +44,7 @@ export function ResumeUploader() {
   const [job, setJob] = useState<Job | null>(null);
 
   const { data: jobs = [], isLoading: isJobLoading } = useJobs();
+  const createApplicationMutation = useCreateApplication();
 
   useEffect(() => {
     if (jobIdParam) {
@@ -251,41 +253,30 @@ export function ResumeUploader() {
       return;
     }
 
+    console.log("Applying for job:", job, reviewData);
+
     try {
-      setIsUploading(true);
-
-      // Create form data for application
-      const formData = new FormData();
-      formData.append("resume", file);
-      formData.append("jobId", job.id);
-      formData.append("resumeText", pdfText);
-
-      // Send application
-      const response = await fetch("/api/applications", {
-        method: "POST",
-        body: formData,
+      await createApplicationMutation.mutateAsync({
+        user_name: reviewData.name,
+        user_email: reviewData.email,
+        job_id: job.id,
+        status: "pending",
+        match_score: (reviewData.overallScore * 10).toString(),
+        resume_url: "",
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to submit application");
-      }
-
       toast({
-        title: "Application submitted",
-        description: "Your job application was successfully submitted",
+        title: "Success",
+        description: "Application submitted successfully",
+        variant: "default",
       });
     } catch (error) {
-      console.error("Error submitting application:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to submit application";
       toast({
         title: "Error",
-        description: errorMessage,
+        description: "Failed to submit application. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsUploading(false);
+      console.error("Error creating job:", error);
     }
   };
 
@@ -314,7 +305,6 @@ export function ResumeUploader() {
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      // Start analysis
       setIsUploading(false);
       setIsAnalyzing(true);
       setCurrentStep(3);
@@ -609,10 +599,10 @@ export function ResumeUploader() {
                   <div className="mt-4">
                     <Button
                       onClick={handleApplyForJob}
-                      disabled={isUploading}
+                      disabled={createApplicationMutation.isPending}
                       className="w-full bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white border-0 shadow-lg shadow-green-500/25 hover:shadow-green-500/40 dark:shadow-green-500/20 dark:hover:shadow-green-500/30"
                     >
-                      {isUploading ? (
+                      {createApplicationMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
                           Submitting...

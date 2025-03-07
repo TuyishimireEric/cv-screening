@@ -7,7 +7,6 @@ import {
   Home,
   Menu,
   X,
-  Shield,
   Sun,
   Moon,
   User,
@@ -16,14 +15,14 @@ import {
 import { cn } from "@/lib/utils";
 import { DashboardView } from "@/components/dashboard/DashboardView";
 import { JobPostsView } from "@/components/dashboard/JobPostView";
-import { JobApplicantsView } from "@/components/dashboard/JobApplicantView";
 import "animate.css";
 import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
 
 export function AdminDashboard() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
 
@@ -41,16 +40,6 @@ export function AdminDashboard() {
       setDarkMode(prefersDark);
     }
   }, []);
-
-  const handleJobClick = (jobId: string) => {
-    setSelectedJobId(jobId);
-    setCurrentView("jobApplicants");
-  };
-
-  const handleBackToJobs = () => {
-    setSelectedJobId(null);
-    setCurrentView("jobPosts");
-  };
 
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
@@ -75,7 +64,7 @@ export function AdminDashboard() {
       view: "jobPosts",
       icon: <Briefcase className="h-5 w-5" />,
     },
-    { name: "Users", view: "users", icon: <Users className="h-5 w-5" /> },
+    // { name: "Users", view: "users", icon: <Users className="h-5 w-5" /> },
   ];
 
   return (
@@ -214,9 +203,12 @@ export function AdminDashboard() {
           "bg-gradient-to-r from-white to-blue-50 border-b border-slate-200"
         )}
       >
-        <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 animate__animated animate__pulse animate__infinite animate__slower">
+        <Link
+          href={"/"}
+          className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 animate__animated animate__pulse animate__infinite animate__slower"
+        >
           HR Admin
-        </h1>
+        </Link>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleTheme}
@@ -283,20 +275,6 @@ export function AdminDashboard() {
               </ul>
             </nav>
             <div className="absolute bottom-0 left-0 right-0 p-4 border-t dark:border-white/10 border-slate-200">
-              {/* <div className="flex items-center gap-3 px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 flex items-center justify-center text-white font-semibold">
-                  A
-                </div>
-                <div>
-                  <p className="text-sm font-medium dark:text-white text-slate-800">
-                    Admin User
-                  </p>
-                  <p className="text-xs dark:text-slate-400 text-slate-500">
-                    admin@company.com
-                  </p>
-                </div>
-              </div> */}
-              {/* User Info */}
               <div className="flex items-center space-x-3">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-800 dark:text-white">
@@ -341,15 +319,7 @@ export function AdminDashboard() {
         )}
       >
         {currentView === "dashboard" && <DashboardView />}
-        {currentView === "jobPosts" && (
-          <JobPostsView
-            onJobClick={handleJobClick}
-            onViewApplicants={(jobId: string) => console.log(jobId)}
-          />
-        )}
-        {currentView === "jobApplicants" && selectedJobId !== null && (
-          <JobApplicantsView jobId={selectedJobId} onBack={handleBackToJobs} />
-        )}
+        {currentView === "jobPosts" && <JobPostsView />}
       </main>
     </div>
   );

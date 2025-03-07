@@ -1,7 +1,6 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import {
-  Zap,
   MapPin,
   Users,
   Eye,
@@ -17,11 +16,11 @@ import { Job } from "@/types";
 
 interface JobCardProps {
   job: Job;
-  onJobClick: (jobId: string) => void;
-  onViewApplicants: (jobId: string) => void;
+  onJobClick: (job: Job) => void;
+  isAdmin?: boolean;
 }
 
-export const JobCard = ({ job, onJobClick, onViewApplicants }:JobCardProps) => {
+export const JobCard = ({ job, onJobClick, isAdmin }: JobCardProps) => {
   return (
     <Card
       key={job.id}
@@ -123,19 +122,14 @@ export const JobCard = ({ job, onJobClick, onViewApplicants }:JobCardProps) => {
         </div>
 
         {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <Button
-            onClick={() => onJobClick(job.id)}
-            className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700/80 text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700 font-medium rounded-lg"
+            onClick={() => onJobClick(job)}
+            className="bg-blue-300 hover:bg-blue-400 dark:bg-gray-800 dark:hover:bg-gray-700/80 text-gray-800 dark:text-white border border-gray-200 dark:border-gray-700 font-medium rounded-lg"
             variant="outline"
           >
-            <Eye className="h-4 w-4 mr-2" /> View Details
-          </Button>
-          <Button
-            onClick={() => onViewApplicants(job.id)}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium rounded-lg shadow-sm"
-          >
-            <Users className="h-4 w-4 mr-2" /> View Applicants
+            <Eye className="h-4 w-4 mr-2" />{" "}
+            {isAdmin ? "View Applied" : "Apply Now!"}
           </Button>
         </div>
       </div>

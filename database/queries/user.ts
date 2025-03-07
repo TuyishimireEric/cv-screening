@@ -9,8 +9,6 @@ export const addNewUser = async (newUser: UserI): Promise<{ id: string }[]> => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(newUser.password, 10);
 
-    // Insert the user with the hashed password
-    console.log("Adding new", newUser);
     const user = await db
       .insert(users)
       .values({

@@ -27,8 +27,8 @@ export default function JobsSection() {
   const { data: jobs = [], isLoading, error } = useJobs();
   const router = useRouter();
 
-  const onJobClick = (jobId: string) => {
-    router.push(`/resume?job_id=${jobId}`);
+  const onJobClick = (job: Job) => {
+    router.push(`/resume?job_id=${job.id}`);
   };
 
   if (isLoading)
@@ -114,8 +114,7 @@ export default function JobsSection() {
             <JobCard
               key={job.id}
               job={job}
-              onJobClick={(id: string) => onJobClick(id)}
-              onViewApplicants={(id: string) => {}}
+              onJobClick={(job: Job) => onJobClick(job)}
             />
           ))}
         </div>
